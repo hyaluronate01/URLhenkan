@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ひらがなURL変換</title>
+
+<style>
+    body {
+        font-family: sans-serif;
+        max-width: 1000px;
+        margin: 30px auto;
+        padding: 0 20px;
+        background: #f5f5f5;
+    }
+
+    h1 {
+        margin-bottom: 10px;
+    }
+
+    .description {
+        color: #555;
+        margin-bottom: 20px;
+    }
+
+    textarea {
+        width: 100%;
+        height: 180px;
+        box-sizing: border-box;
+        resize: vertical;
+        padding: 12px;
+        font-size: 16px;
+        border: 1px solid #aaa;
+        border-radius: 6px;
+        background: white;
+    }
+
+    .label {
+        font-weight: bold;
+        margin: 10px 0 6px;
+    }
+
+    .buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 15px 0;
+    }
+
+    button {
+        padding: 10px 18px;
+        font-size: 15px;
+        cursor: pointer;
+        border: 1px solid #888;
+        border-radius: 6px;
+        background: white;
+    }
+
+    button:hover {
+        background: #eee;
+    }
+
+    .status {
+        margin-top: 10px;
+        padding: 10px;
+        border-radius: 6px;
+        background: white;
+        border: 1px solid #ccc;
+        min-height: 20px;
+    }
+
+    .info {
+        margin-top: 20px;
+        padding: 15px;
+        background: white;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        line-height: 1.7;
+    }
+
+    code {
+        background: #eee;
+        padding: 2px 5px;
+        border-radius: 3px;
+    }
+</style>
+</head>
+
+<body>
+
+<h1>ひらがなURL変換</h1>
+
+<div class="description">
+    URLなどの文字列を、ひらがなだけの文字列に変換します。
+    変換した文字列は元の文字列に戻すことができます。
+</div>
+
+<div class="label">入力</div>
+
+<textarea id="input" placeholder="ここにURLなどを入力してください"></textarea>
+
+<div class="buttons">
+    <button onclick="encodeText()">ひらがなに変換</button>
+    <button onclick="decodeText()">元に戻す</button>
+    <button onclick="copyOutput()">結果をコピー</button>
+    <button onclick="swapText()">入力・結果を入れ替え</button>
+    <button onclick="clearAll()">クリア</button>
+</div>
+
+<div class="label">結果</div>
+
+<textarea id="output" readonly placeholder="ここに結果が表示されます"></textarea>
+
+<div id="status" class="status"></div>
+
+<div class="info">
+    <strong>方式</strong><br>
+    UTF-8のデータを1バイトずつ処理し、
+    1バイトを2文字のひらがなに変換しています。<br><br>
+
+    使用するひらがなは以下の46文字です。<br>
+    <code>あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん</code>
+    <br><br>
+
+    <strong>注意：</strong>
+    これは暗号化ではなく「符号化」です。
+    パスワードなどによる保護はありません。
+</div>
+
+<script>
+
+// ============================================================
+// 使用するひらがな
+// ============================================================
+
+const KANA =
+    "あいうえおかきくけこ" +
+    "さしすせそたちつてと" +
+    "なにぬねのはひふへほ" +
+    "まみむめもやゆよ" +
+    "らりるれろわをん";
+
+
+// ============================================================
+// ひらがな → 番号 の対応表
+// ============================================================
+
+const DECODE = {};
+
+for (let i = 0; i < KANA.length; i++) {
+    DECODE[KANA[i]] = i;
+}
+
+
+// ============================================================
+// 文字列 → ひらがな
+// ============================================================
+
+function encodeText() {
+
+    const input = document.getElementById("input").value;
+
+    if (input.length === 0) {
+        setStatus("入力がありません。");
+        return;
+    }
+
+    try {
+
+        // JavaScript文字列をUTF-8のバイト列に変換
+        const encoder = new TextEncoder();
+        const bytes = encoder.encode(input);
+
+        let result = "";
+
+        // 1バイトを2文字のひらがなへ
+        for (const byte of bytes) {
+
+            const a = Math.floor(byte / KANA.length);
+            const b = byte % KANA.length;
+
+            result += KANA[a];
+            result += KANA[b];
+        }
+
+        document.getElementById("output").value = result;
+
+        setStatus(
+            "変換しました。元データ " +
+            bytes.length +
+            " バイト → " +
+            result.length +
+            " 文字"
+        );
+
+    } catch (error) {
+
+        setStatus("変換エラー: " + error.message);
+    }
+}
+
+
+// ============================================================
+// ひらがな → 元の文字列
+// ============================================================
+
+function decodeText() {
+
+    let input = document.getElementById("input").value;
+
+    if (input.length === 0) {
+        setStatus("入力がありません。");
+        return;
+    }
+
+    // 改行・スペースなどは無視
+    input = input.replace(/\s/g, "");
+
+    // 2文字で1バイトなので偶数である必要がある
+    if (input.length % 2 !== 0) {
+
+        setStatus(
+            "エラー：ひらがなの文字数が奇数です。"
+        );
+
+        return;
+    }
+
+    try {
+
+        const bytes = new Uint8Array(input.length / 2);
+
+        let byteIndex = 0;
+
+        for (let i = 0; i < input.length; i += 2) {
+
+            const c1 = input[i];
+            const c2 = input[i + 1];
+
+            const a = DECODE[c1];
+            const b = DECODE[c2];
+
+            // 存在しない文字
+            if (a === undefined || b === undefined) {
+
+                throw new Error(
+                    "使用できない文字があります：" +
+                    c1 + c2
+                );
+            }
+
+            const value = a * KANA.length + b;
+
+            // 1バイトは0～255
+            if (value > 255) {
+
+                throw new Error(
+                    "不正なひらがなコードがあります：" +
+                    c1 + c2
+                );
+            }
+
+            bytes[byteIndex] = value;
+            byteIndex++;
+        }
+
+        // UTF-8として元の文字列に戻す
+        const decoder = new TextDecoder(
+            "utf-8",
+            { fatal: true }
+        );
+
+        const result = decoder.decode(bytes);
+
+        document.getElementById("output").value = result;
+
+        setStatus(
+            "元の文字列に戻しました。"
+        );
+
+    } catch (error) {
+
+        setStatus(
+            "復号エラー：変換前のデータではない可能性があります。"
+        );
+    }
+}
+
+
+// ============================================================
+// 結果をコピー
+// ============================================================
+
+async function copyOutput() {
+
+    const output =
+        document.getElementById("output").value;
+
+    if (!output) {
+
+        setStatus("コピーする結果がありません。");
+        return;
+    }
+
+    try {
+
+        // 通常はこちら
+        await navigator.clipboard.writeText(output);
+
+        setStatus("結果をクリップボードにコピーしました。");
+
+    } catch (error) {
+
+        // file:// などでClipboard APIが使えない場合の予備処理
+        try {
+
+            const temp =
+                document.createElement("textarea");
+
+            temp.value = output;
+
+            document.body.appendChild(temp);
+
+            temp.select();
+
+            document.execCommand("copy");
+
+            document.body.removeChild(temp);
+
+            setStatus("結果をクリップボードにコピーしました。");
+
+        } catch (error2) {
+
+            setStatus(
+                "コピーできませんでした。結果を手動でコピーしてください。"
+            );
+        }
+    }
+}
+
+
+// ============================================================
+// 入力と結果を入れ替える
+// ============================================================
+
+function swapText() {
+
+    const input =
+        document.getElementById("input");
+
+    const output =
+        document.getElementById("output");
+
+    const temp = input.value;
+
+    input.value = output.value;
+    output.value = temp;
+
+    setStatus("入力と結果を入れ替えました。");
+}
+
+
+// ============================================================
+// クリア
+// ============================================================
+
+function clearAll() {
+
+    document.getElementById("input").value = "";
+    document.getElementById("output").value = "";
+
+    setStatus("");
+}
+
+
+// ============================================================
+// ステータス表示
+// ============================================================
+
+function setStatus(message) {
+
+    document.getElementById("status").textContent = message;
+}
+
+</script>
+
+</body>
+</html>
