@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ひらがなURL変換</title>
+
+<title>ひらがなURL変換ツール</title>
 
 <style>
     body {
@@ -15,12 +16,17 @@
     }
 
     h1 {
-        margin-bottom: 10px;
+        margin-bottom: 5px;
     }
 
     .description {
         color: #555;
         margin-bottom: 20px;
+    }
+
+    .label {
+        font-weight: bold;
+        margin: 10px 0 6px;
     }
 
     textarea {
@@ -33,11 +39,6 @@
         border: 1px solid #aaa;
         border-radius: 6px;
         background: white;
-    }
-
-    .label {
-        font-weight: bold;
-        margin: 10px 0 6px;
     }
 
     .buttons {
@@ -57,7 +58,11 @@
     }
 
     button:hover {
-        background: #eee;
+        background: #e8e8e8;
+    }
+
+    .download {
+        margin-top: 5px;
     }
 
     .status {
@@ -83,54 +88,116 @@
         padding: 2px 5px;
         border-radius: 3px;
     }
+
+    hr {
+        margin: 25px 0;
+        border: 0;
+        border-top: 1px solid #ccc;
+    }
 </style>
 </head>
 
 <body>
 
-<h1>ひらがなURL変換</h1>
+<h1>ひらがなURL変換ツール</h1>
 
 <div class="description">
-    URLなどの文字列を、ひらがなだけの文字列に変換します。
-    変換した文字列は元の文字列に戻すことができます。
+    URLなどの文字列を、ひらがなだけの文字列に変換できます。
 </div>
+
 
 <div class="label">入力</div>
 
-<textarea id="input" placeholder="ここにURLなどを入力してください"></textarea>
+<textarea id="input"
+    placeholder="ここにURLや文章を入力してください"></textarea>
+
 
 <div class="buttons">
-    <button onclick="encodeText()">ひらがなに変換</button>
-    <button onclick="decodeText()">元に戻す</button>
-    <button onclick="copyOutput()">結果をコピー</button>
-    <button onclick="swapText()">入力・結果を入れ替え</button>
-    <button onclick="clearAll()">クリア</button>
+
+    <button onclick="encodeText()">
+        ひらがなに変換
+    </button>
+
+    <button onclick="decodeText()">
+        元に戻す
+    </button>
+
+    <button onclick="copyOutput()">
+        結果をコピー
+    </button>
+
+    <button onclick="swapText()">
+        入力・結果を入れ替え
+    </button>
+
+    <button onclick="clearAll()">
+        クリア
+    </button>
+
 </div>
+
 
 <div class="label">結果</div>
 
-<textarea id="output" readonly placeholder="ここに結果が表示されます"></textarea>
+<textarea id="output"
+    readonly
+    placeholder="ここに結果が表示されます"></textarea>
+
 
 <div id="status" class="status"></div>
 
-<div class="info">
-    <strong>方式</strong><br>
-    UTF-8のデータを1バイトずつ処理し、
-    1バイトを2文字のひらがなに変換しています。<br><br>
 
-    使用するひらがなは以下の46文字です。<br>
-    <code>あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん</code>
+<hr>
+
+
+<button class="download" onclick="downloadThisHTML()">
+    このツールをHTMLとしてダウンロード
+</button>
+
+
+<div class="info">
+
+    <strong>このツールについて</strong>
+
     <br><br>
 
+    URLなどの文字列を、46種類のひらがなだけを使って
+    可逆変換します。
+
+    <br><br>
+
+    変換に使用する文字：
+
+    <br>
+
+    <code>
+    あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん
+    </code>
+
+    <br><br>
+
+    <strong>特徴</strong>
+
+    <ul>
+        <li>インストール不要</li>
+        <li>Python不要</li>
+        <li>サーバー不要</li>
+        <li>ネット接続不要で変換可能</li>
+        <li>URL以外の日本語文章にも使用可能</li>
+        <li>変換した文字列を完全に元へ戻せます</li>
+    </ul>
+
     <strong>注意：</strong>
-    これは暗号化ではなく「符号化」です。
-    パスワードなどによる保護はありません。
+    これは暗号化ではありません。
+    秘密情報を隠す目的には使用しないでください。
+
 </div>
+
 
 <script>
 
 // ============================================================
-// 使用するひらがな
+// ひらがな一覧
 // ============================================================
 
 const KANA =
@@ -142,7 +209,7 @@ const KANA =
 
 
 // ============================================================
-// ひらがな → 番号 の対応表
+// ひらがな → 番号
 // ============================================================
 
 const DECODE = {};
@@ -158,44 +225,52 @@ for (let i = 0; i < KANA.length; i++) {
 
 function encodeText() {
 
-    const input = document.getElementById("input").value;
+    const input =
+        document.getElementById("input").value;
 
     if (input.length === 0) {
+
         setStatus("入力がありません。");
         return;
     }
 
     try {
 
-        // JavaScript文字列をUTF-8のバイト列に変換
         const encoder = new TextEncoder();
+
         const bytes = encoder.encode(input);
 
         let result = "";
 
-        // 1バイトを2文字のひらがなへ
         for (const byte of bytes) {
 
-            const a = Math.floor(byte / KANA.length);
-            const b = byte % KANA.length;
+            const a =
+                Math.floor(byte / KANA.length);
+
+            const b =
+                byte % KANA.length;
 
             result += KANA[a];
             result += KANA[b];
         }
 
-        document.getElementById("output").value = result;
+        document.getElementById("output").value =
+            result;
 
         setStatus(
-            "変換しました。元データ " +
+            "変換完了：" +
             bytes.length +
-            " バイト → " +
+            "バイト → " +
             result.length +
-            " 文字"
+            "文字"
         );
 
     } catch (error) {
 
-        setStatus("変換エラー: " + error.message);
+        setStatus(
+            "変換エラー：" +
+            error.message
+        );
     }
 }
 
@@ -206,21 +281,23 @@ function encodeText() {
 
 function decodeText() {
 
-    let input = document.getElementById("input").value;
+    let input =
+        document.getElementById("input").value;
 
     if (input.length === 0) {
+
         setStatus("入力がありません。");
         return;
     }
 
-    // 改行・スペースなどは無視
+    // 改行・スペースを無視
     input = input.replace(/\s/g, "");
 
-    // 2文字で1バイトなので偶数である必要がある
+    // 2文字で1バイト
     if (input.length % 2 !== 0) {
 
         setStatus(
-            "エラー：ひらがなの文字数が奇数です。"
+            "エラー：文字数が奇数です。"
         );
 
         return;
@@ -228,7 +305,8 @@ function decodeText() {
 
     try {
 
-        const bytes = new Uint8Array(input.length / 2);
+        const bytes =
+            new Uint8Array(input.length / 2);
 
         let byteIndex = 0;
 
@@ -240,8 +318,8 @@ function decodeText() {
             const a = DECODE[c1];
             const b = DECODE[c2];
 
-            // 存在しない文字
-            if (a === undefined || b === undefined) {
+            if (a === undefined ||
+                b === undefined) {
 
                 throw new Error(
                     "使用できない文字があります：" +
@@ -249,30 +327,32 @@ function decodeText() {
                 );
             }
 
-            const value = a * KANA.length + b;
+            const value =
+                a * KANA.length + b;
 
-            // 1バイトは0～255
             if (value > 255) {
 
                 throw new Error(
-                    "不正なひらがなコードがあります：" +
-                    c1 + c2
+                    "不正なコードです。"
                 );
             }
 
             bytes[byteIndex] = value;
+
             byteIndex++;
         }
 
-        // UTF-8として元の文字列に戻す
-        const decoder = new TextDecoder(
-            "utf-8",
-            { fatal: true }
-        );
+        const decoder =
+            new TextDecoder(
+                "utf-8",
+                { fatal: true }
+            );
 
-        const result = decoder.decode(bytes);
+        const result =
+            decoder.decode(bytes);
 
-        document.getElementById("output").value = result;
+        document.getElementById("output").value =
+            result;
 
         setStatus(
             "元の文字列に戻しました。"
@@ -281,14 +361,14 @@ function decodeText() {
     } catch (error) {
 
         setStatus(
-            "復号エラー：変換前のデータではない可能性があります。"
+            "復号できませんでした。"
         );
     }
 }
 
 
 // ============================================================
-// 結果をコピー
+// コピー
 // ============================================================
 
 async function copyOutput() {
@@ -298,20 +378,24 @@ async function copyOutput() {
 
     if (!output) {
 
-        setStatus("コピーする結果がありません。");
+        setStatus(
+            "コピーする結果がありません。"
+        );
+
         return;
     }
 
     try {
 
-        // 通常はこちら
         await navigator.clipboard.writeText(output);
 
-        setStatus("結果をクリップボードにコピーしました。");
+        setStatus(
+            "クリップボードにコピーしました。"
+        );
 
     } catch (error) {
 
-        // file:// などでClipboard APIが使えない場合の予備処理
+        // 古いブラウザ等への対応
         try {
 
             const temp =
@@ -327,12 +411,14 @@ async function copyOutput() {
 
             document.body.removeChild(temp);
 
-            setStatus("結果をクリップボードにコピーしました。");
+            setStatus(
+                "クリップボードにコピーしました。"
+            );
 
         } catch (error2) {
 
             setStatus(
-                "コピーできませんでした。結果を手動でコピーしてください。"
+                "コピーできませんでした。"
             );
         }
     }
@@ -340,7 +426,7 @@ async function copyOutput() {
 
 
 // ============================================================
-// 入力と結果を入れ替える
+// 入力・結果を入れ替え
 // ============================================================
 
 function swapText() {
@@ -351,12 +437,18 @@ function swapText() {
     const output =
         document.getElementById("output");
 
-    const temp = input.value;
+    const temp =
+        input.value;
 
-    input.value = output.value;
-    output.value = temp;
+    input.value =
+        output.value;
 
-    setStatus("入力と結果を入れ替えました。");
+    output.value =
+        temp;
+
+    setStatus(
+        "入力と結果を入れ替えました。"
+    );
 }
 
 
@@ -367,6 +459,7 @@ function swapText() {
 function clearAll() {
 
     document.getElementById("input").value = "";
+
     document.getElementById("output").value = "";
 
     setStatus("");
@@ -374,12 +467,58 @@ function clearAll() {
 
 
 // ============================================================
-// ステータス表示
+// ステータス
 // ============================================================
 
 function setStatus(message) {
 
-    document.getElementById("status").textContent = message;
+    document.getElementById("status").textContent =
+        message;
+}
+
+
+// ============================================================
+// このHTML自身をダウンロード
+// ============================================================
+
+function downloadThisHTML() {
+
+    // 現在表示されているHTML全体を取得
+    let html =
+        "<!DOCTYPE html>\n" +
+        document.documentElement.outerHTML;
+
+    const blob =
+        new Blob(
+            [html],
+            {
+                type:
+                    "text/html;charset=utf-8"
+            }
+        );
+
+    const url =
+        URL.createObjectURL(blob);
+
+    const link =
+        document.createElement("a");
+
+    link.href = url;
+
+    link.download =
+        "URLhenkan.html";
+
+    document.body.appendChild(link);
+
+    link.click();
+
+    document.body.removeChild(link);
+
+    URL.revokeObjectURL(url);
+
+    setStatus(
+        "URLhenkan.html をダウンロードしました。"
+    );
 }
 
 </script>
